@@ -8,6 +8,7 @@ Changelog:
 v1.0.0 Transition call to replace original Corona SDK function
 v1.0.1 Added stage check for object in transition. Kills listener if object missing.
 v1.0.2 Added support for mask parameters.
+v1.0.3 Fixed bug in scaling affecting reference point.
 --]]
 --======================================================================================--
 
@@ -350,11 +351,11 @@ transitFunc = function(self,e)
 					end
 					
 					if self.xScale then
-						obj:scale(self.endxS/obj.xScale,1)
+						obj.xScale = self.endxS
 					end
 					
 					if self.yScale then
-						obj:scale(1,self.endyS/obj.yScale)
+						obj.yScale = self.endyS
 					end
 					
 					if self.alpha then
@@ -424,11 +425,11 @@ transitFunc = function(self,e)
 					end
 					
 					if self.xScale then
-						obj:scale(self.transition(timePassed,self.xScale,self.dxS,self.time)/obj.xScale,1)
+						obj.xScale = self.transition(timePassed,self.xScale,self.dxS,self.time)
 					end
 					
 					if self.yScale then
-						obj:scale(1,self.transition(timePassed,self.yScale,self.dyS,self.time)/obj.yScale)
+						obj.yScale = self.transition(timePassed,self.yScale,self.dyS,self.time)
 					end
 					
 					if self.alpha then
@@ -565,12 +566,12 @@ function from(obj,params)
 		end
 		
 		if params.xScale then
-			obj:scale((params.xScale/obj.xScale)+1,1)
+			obj.xScale = params.xScale + obj.xScale
 			params.xScale = -params.xScale
 		end
 		
 		if params.yScale then
-			obj:scale(1,(params.yScale/obj.yScale)+1)
+			obj.yScale = params.yScale + obj.yScale
 			params.yScale = -params.yScale
 		end
 		
@@ -636,13 +637,13 @@ function from(obj,params)
 		
 		if params.xScale then
 			temp = obj.xScale
-			obj:scale(params.xScale/obj.xScale,1)
+			obj.xScale = params.xScale
 			params.xScale = temp
 		end
 		
 		if params.yScale then
 			temp = obj.yScale
-			obj:scale(1,params.yScale/obj.yScale)
+			obj.yScale = params.yScale
 			params.yScale = temp
 		end
 		
