@@ -1,7 +1,7 @@
 --=====================================================================================--
 --[[ 
 Abstract: Improved transition library
-Version: 1.0.3 (June 28th 2012)
+Version: 1.0.3 (August 30th 2012)
 Copyright (c) 2012 Lian Yuanlin, timespacemagic LLP
 
 Changelog:
