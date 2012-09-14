@@ -1,7 +1,7 @@
 --=====================================================================================--
 --[[ 
 Abstract: Improved transition library
-Version: 1.0.3 (August 30th 2012)
+Version: 1.0.4 (September 9th 2012)
 Copyright (c) 2012 Lian Yuanlin, timespacemagic LLP
 
 Changelog:
@@ -9,10 +9,11 @@ v1.0.0 Transition call to replace original Corona SDK function
 v1.0.1 Added stage check for object in transition. Kills listener if object missing.
 v1.0.2 Added support for mask parameters.
 v1.0.3 Fixed bug in scaling affecting reference point.
+v1.0.4 Changed to recommended way of using external modules
 --]]
 --======================================================================================--
 
-module(..., package.seeall)
+local tranImprov = {}
 
 -- table to track all transitions
 local transitionStack = {}
@@ -28,6 +29,9 @@ local PI = math.pi
 
 -- Foward declaration of listener
 local transitFunc
+
+-- forward declare functions
+local cancel,pause,resume,cancelAll,pauseAll,resumeAll,to,from
 
 ---------------------------------------------------------------------------------------------------
 -- Transition Easing Functions																	 --
@@ -136,7 +140,7 @@ end
 easings["inOutExpo"] = function(t,b,c,d)
 	if t==0 then return b end
 	if t==d then return b+c end
-	
+
 	t=2*t/d
 	if t<1 then 
 		return c*0.5*(2^(10*(t-1))) + b
@@ -195,32 +199,32 @@ end
 
 easings["outElastic"] = function(t,b,c,d)
 	if t==0 then return b end
-	
+
 	t=t/d
 	if t==1 then return b+c end
-	
+
 	local p=d*0.3
 	local a=abs(c)
 	local s = p/(2*PI)*asin(c/a)
-	
+
 	return a*(2^(-10*t))*sin((t*d-s)*(2*PI)/p) + c + b
 end
 
 easings["inOutElastic"] = function(t,b,c,d)
 	if t==0 then return b end
-	
+
 	t=2*t/d
 	if t==2 then return b+c end
-	
+
 	local p = d*(0.45)
 	local a = abs(c)
 	local s = p/(2*PI)*asin(c/a)
-	
+
 	if t<1 then
 		t=t-1
 		return -0.5*(a*(2^(10*t))*sin((t*d-s)*(2*PI)/p)) + b
 	end
-	
+
 	t=t-1
 	return a*(2^(-10*t))*sin((t*d-s)*(2*PI)/p )*0.5 + c + b
 end
@@ -228,27 +232,27 @@ end
 --[[BACK EASING: overshooting cubic easing: (s+1)*t^3 - s*t^2--]]
 easings["inBack"] = function(t,b,c,d)
 	local s = 1.70158	-- gives a back bounce effect of 10% c, according to Robert Penner anyway
-	
+
 	t=t/d
 	return c*t*t*((s+1)*t-s) + b
 end
 
 easings["outBack"] = function(t,b,c,d)
 	local s = 1.70158
-	
+
 	t=t/d-1
 	return c*(t*t*((s+1)*t+s)+1) + b
 end
 
 easings["inOutBack"] = function(t,b,c,d)
 	local s = 1.70158
-	
+
 	t=2*t/d
 	if t<1 then 
 		s=s*1.525
 		return c*0.5*(t*t*((s+1)*t-s)) + b
 	end
-	
+
 	t=t-2
 	s=s*1.525
 	return c*0.5*(t*t*((s+1)*t+s) +2) + b
@@ -279,20 +283,20 @@ easings["inOutBounce"] = function(t,b,c,d)
 	if t < d/2 then
 		return easings["inBounce"](t*2, 0, c, d)*0.5 + b
 	end
-	
+
 	return easings["outBounce"](t*2-d,0,c,d)*0.5+c*0.5 + b
 end
 
 -- function to replace transition.cancel
 function cancel(transitionHandle)
 	local index =  #transitionStack
-	
+
 	while transitionStack[index] ~= transitionHandle and index > 0 do
 		index = index - 1
 	end
-	
+
 	Runtime:removeEventListener("enterFrame", transitionHandle)
-	
+
 	-- to cancel, locate transition handle to remove, remove enterFrame listener
 	table.remove(transitionStack, index)
 	transitionHandle = nil
@@ -312,21 +316,21 @@ end
 -- Runtime transition control listener
 transitFunc = function(self,e)
 	local eTime = e.time
-	
+
 	-- only carry out animation when unpaused
 	if self.isActive then
 		local deltaTime = eTime - self.prevTime
 		local obj = self.obj
-		
+
 		-- execute onStart Listener if assigned
 		if	self.onStart then
 			self.onStart(obj)
 			self.onStart = nil
 		end
-		
+
 		deltaTime = deltaTime * self.timeScale			-- timeScale parameter allows slowing and increasing speed of animation on the fly
 		self.timePassed = self.timePassed + deltaTime
-		
+
 		-- check if object has been removed
 		if obj.x then
 			-- make sure delay has passed
@@ -337,65 +341,65 @@ transitFunc = function(self,e)
 					if self.x then
 						obj:translate(self.endX-obj.x,0)
 					end
-					
+
 					if self.y then
 						obj:translate(0,self.endY-obj.y)
 					end
-					
+
 					if self.width then
 						obj.width = self.endWidth
 					end
-					
+
 					if self.height then
 						obj.height = self.endHeight
 					end
-					
+
 					if self.xScale then
 						obj.xScale = self.endxS
 					end
-					
+
 					if self.yScale then
 						obj.yScale = self.endyS
 					end
-					
+
 					if self.alpha then
 						obj.alpha = self.endAlpha
 					end
-					
+
 					if self.rotation then
 						obj:rotate(self.endRot-obj.rotation)
 					end
-					
+
 					if self.maskX then
 						obj.maskX = self.endmX
 					end
-					
+
 					if self.maskY then
 						obj.maskY = self.endmY
 					end
-					
+
 					if self.maskScaleX then
 						obj.maskScaleX = self.endmxS
 					end
-					
+
 					if self.maskScaleY then
 						obj.maskScaleY = self.endmyS
 					end
-					
+
 					if self.maskRotation then
 						obj.maskRotation = self.endmRot
 					end
-					
+
 					if self.onFrac then
 						if self.onFrac.fraction <= 1 then			-- makes sure fractional listener is executed in cases whereby framerate drops, if it's within animation time
 							self.onFrac.listener(obj)
 						end
 					end
-					
+
 					if self.onComplete then
 						self.onComplete(obj)
 					end
-					
+
 					cancel(self)
 					self=nil
 				else
@@ -406,56 +410,56 @@ transitFunc = function(self,e)
 							self.onFrac = nil
 						end
 					end
-					
+
 					-- change parameters if assigned
 					if self.x then
 						obj:translate(self.transition(timePassed,self.x,self.dX,self.time)-obj.x,0)
 					end
-					
+
 					if self.y then
 						obj:translate(0,self.transition(timePassed,self.y,self.dY,self.time)-obj.y)
 					end
-					
+
 					if self.width then
 						obj.width = self.transition(timePassed,self.width,self.dWidth,self.time)
 					end
-					
+
 					if self.height then
 						obj.height = self.transition(timePassed,self.height,self.dHeight,self.time)
 					end
-					
+
 					if self.xScale then
 						obj.xScale = self.transition(timePassed,self.xScale,self.dxS,self.time)
 					end
-					
+
 					if self.yScale then
 						obj.yScale = self.transition(timePassed,self.yScale,self.dyS,self.time)
 					end
-					
+
 					if self.alpha then
 						obj.alpha = self.transition(timePassed,self.alpha,self.dA,self.time)
 					end
-					
+
 					if self.rotation then
 						obj:rotate(self.transition(timePassed,self.rotation,self.dRot,self.time)-obj.rotation)
 					end
-					
+
 					if self.maskX then
 						obj.maskX = self.transition(timePassed,self.maskX,self.dmX,self.time)
 					end
-					
+
 					if self.maskY then
 						obj.maskY = self.transition(timePassed,self.maskY,self.dmY,self.time)
 					end
-					
+
 					if self.maskScaleX then
 						obj.maskScaleX = self.transition(timePassed,self.maskScaleX,self.dmxS,self.time)
 					end
-					
+
 					if self.maskScaleY then
 						obj.maskScaleY = self.transition(timePassed,self.maskScaleY,self.dmyS,self.time)
 					end
-					
+
 					if self.maskRotation then
 						obj.maskRotation = self.transition(timePassed,self.maskRotation,self.dmRot,self.time)
 					end
@@ -468,7 +472,7 @@ transitFunc = function(self,e)
 			self=nil
 		end
 	end
-	
+
 	if self then
 		self.prevTime = eTime
 	end
@@ -477,7 +481,7 @@ end
 -- replacing the transition.to function
 function to(obj,params)
 	local transitionHandle = {}
-	
+
 	-- setting up flags for required changes
 	-- check for delta parameter
 	if params.delta then
@@ -509,8 +513,8 @@ function to(obj,params)
 		if params.maskScaleY then transitionHandle.maskScaleY = obj.maskScaleY; transitionHandle.endmyS = params.maskScaleY; transitionHandle.dmyS = params.maskScaleY - obj.maskScaleY; end
 		if params.maskRotation then transitionHandle.maskRotation = obj.maskRotation; transitionHandle.endmRot = params.maskRotation; transitionHandle.dmRot = params.maskRotation - obj.maskRotation; end
 	end
-	
-	
+
+
 	-- animation parameters
 	transitionHandle.transition = easings[params.transition] or easings["linear"]
 	transitionHandle.time = params.time or 500
@@ -521,19 +525,19 @@ function to(obj,params)
 	transitionHandle.timeScale = 1
 	transitionHandle.prevTime = system.getTimer()
 	transitionHandle.timePassed = 0
-	
-	
+
+
 	-- control parameters
 	transitionHandle.isActive = true
 	transitionHandle.obj = obj
-	
+
 	-- start enterFrame listener
 	transitionHandle.enterFrame = transitFunc
 	Runtime:addEventListener("enterFrame", transitionHandle)
-	
+
 	-- add to stack
 	transitionStack[#transitionStack+1] = transitionHandle
-	
+
 	-- return handle
 	return transitionHandle
 end
@@ -549,62 +553,62 @@ function from(obj,params)
 			obj:translate(params.x,0)
 			params.x = -params.x
 		end
-		
+
 		if params.y then
 			obj:translate(0,params.y)
 			params.y = -params.y
 		end
-		
+
 		if params.width then
 			obj.width = obj.width + params.width
 			params.width = -params.width
 		end
-		
+
 		if params.height then
 			obj.height = obj.height + params.height
 			params.height = -params.height
 		end
-		
+
 		if params.xScale then
 			obj.xScale = params.xScale + obj.xScale
 			params.xScale = -params.xScale
 		end
-		
+
 		if params.yScale then
 			obj.yScale = params.yScale + obj.yScale
 			params.yScale = -params.yScale
 		end
-		
+
 		if params.alpha then
 			obj.alpha = obj.alpha + params.alpha
 			params.alpha = -params.alpha
 		end
-		
+
 		if params.rotation then
 			obj:rotate(params.rotation)
 			params.rotation = -params.rotation
 		end
-		
+
 		if params.maskX then
 			obj.maskX = obj.maskX + params.maskX
 			params.alpha = -params.maskX
 		end
-		
+
 		if params.maskY then
 			obj.maskY = obj.maskY + params.maskY
 			params.maskY = -params.maskY
 		end
-		
+
 		if params.maskScaleX then
 			obj.maskScaleX = obj.maskScaleX + params.maskScaleX
 			params.maskScaleX= -params.maskScaleX
 		end
-		
+
 		if params.maskScaleY then
 			obj.maskScaleY = obj.maskScaleY + params.maskScaleY
 			params.maskScaleY = -params.maskScaleY
 		end
-		
+
 		if params.maskRotation then
 			obj.maskRotation = obj.maskRotation + params.maskRotation
 			params.maskRotation = -params.maskRotation
@@ -616,80 +620,80 @@ function from(obj,params)
 			obj:translate(params.x-obj.x,0)
 			params.x = temp
 		end
-		
+
 		if params.y then
 			temp = obj.y
 			obj:translate(0,params.y-obj.y)
 			params.y = temp
 		end
-		
+
 		if params.width then
 			temp = obj.width
 			obj.width = params.width
 			params.width = temp
 		end
-		
+
 		if params.height then
 			temp = obj.height
 			obj.height = params.height
 			params.height = temp
 		end
-		
+
 		if params.xScale then
 			temp = obj.xScale
 			obj.xScale = params.xScale
 			params.xScale = temp
 		end
-		
+
 		if params.yScale then
 			temp = obj.yScale
 			obj.yScale = params.yScale
 			params.yScale = temp
 		end
-		
+
 		if params.alpha then
 			temp = obj.alpha
 			obj.alpha = params.alpha
 			params.alpha = temp
 		end
-		
+
 		if params.rotation then
 			temp = obj.rotation
 			obj:rotate(params.rotation-obj.rotation)
 			params.rotation = temp
 		end
-		
+
 		if params.maskX then
 			temp = obj.maskX
 			obj.maskX = params.maskX
 			params.maskX = temp
 		end
-		
+
 		if params.maskY then
 			temp = obj.maskY
 			obj.maskY = params.maskY
 			params.maskY = temp
 		end
-		
+
 		if params.maskScaleX then
 			temp = obj.maskScaleX
 			obj.maskScaleX = params.maskScaleX
 			params.maskScaleX = temp
 		end
-		
+
 		if params.maskScaleY then
 			temp = obj.maskScaleY
 			obj.maskScaleY = params.maskScaleY
 			params.maskScaleY = temp
 		end
-		
+
 		if params.maskRotation then
 			temp = obj.maskRotation
 			obj.maskRotation = params.maskRotation
 			params.maskRotation = temp
 		end
 	end
-	
+
 	return to(obj,params)
 end
 
@@ -719,3 +723,15 @@ function cancelAll()
 		transitionStack = {}
 	end
 end
+
+-- accessibility
+tranImprov.cancel = cancel
+tranImprov.pause = pause
+tranImprov.resume = resume
+tranImprov.to = to
+tranImprov.from = from
+tranImprov.cancelAll = cancelAll
+tranImprov.pauseAll = pauseAll
+tranImprov.resumeAll = resumeAll
+
+return tranImprov
